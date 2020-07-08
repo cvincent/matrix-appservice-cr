@@ -1,0 +1,13 @@
+name: matrix_org-app_service
+version: 0.1.0
+
+authors:
+  - Chris Vincent <chris.vincent@hey.com>
+
+crystal: 0.35.1
+
+license: MIT
+
+dependencies:
+  router:
+    github: tbrand/router.cr
