@@ -53,6 +53,7 @@ class MatrixOrg::AppService::Server
       validate_request!(context, params)
       yield
     rescue InvalidAccessToken
+      context.response.status = HTTP::Status::FORBIDDEN
       context.response.print({
           "errcode" => "M_FORBIDDEN",
           "error" => "Bad token supplied",
