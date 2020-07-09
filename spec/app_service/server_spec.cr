@@ -5,20 +5,16 @@ class TestImpl < MatrixOrg::AppService::Server
   property events_handled : Int32
   @events_handled = 0
 
-  private def handle_get_user(context, user_id)
-    context.tap do |ctx|
-      ctx.response.print("user id: #{user_id}")
-    end
-  end
-
-  private def handle_get_room(context, room_alias)
-    context.tap do |ctx|
-      ctx.response.print("room alias: #{room_alias}")
-    end
-  end
-
-  private def handle_put_event(context, event)
+  private def handle_put_event(event)
     @events_handled += 1
+  end
+
+  private def handle_get_user(user_id)
+    true
+  end
+
+  private def handle_get_room(room_alias)
+    true
   end
 end
 
@@ -60,6 +56,12 @@ describe MatrixOrg::AppService::Server do
 
     test_authorization_errors
 
+    it "always responds to PUT transactions with 200 and an empty object" do
+      resp = client.put("/_matrix/app/v1/transactions/some_txn?access_token=#{TEST_TOKEN}", body: "[{}, {}]")
+      resp.status.should eq(HTTP::Status::OK)
+      resp.body.should eq("{}")
+    end
+
     it "always indicates that a user doesn't exist" do
       resp = client.get("/_matrix/app/v1/users/fake_user_id?access_token=#{TEST_TOKEN}")
       resp.status.should eq(HTTP::Status::NOT_FOUND)
@@ -68,12 +70,6 @@ describe MatrixOrg::AppService::Server do
     it "always indicates that a room doesn't exist" do
       resp = client.get("/_matrix/app/v1/rooms/fake_room_id?access_token=#{TEST_TOKEN}")
       resp.status.should eq(HTTP::Status::NOT_FOUND)
-    end
-
-    it "always responds to PUT transactions with 200 and an empty object" do
-      resp = client.put("/_matrix/app/v1/transactions/some_txn?access_token=#{TEST_TOKEN}", body: "[{}, {}]")
-      resp.status.should eq(HTTP::Status::OK)
-      resp.body.should eq("{}")
     end
   end
 
@@ -88,17 +84,7 @@ describe MatrixOrg::AppService::Server do
 
     test_authorization_errors
 
-    it "delegates getting a user" do
-      resp = client.get("/_matrix/app/v1/users/fake_user_id?access_token=#{TEST_TOKEN}")
-      resp.body.should eq("user id: fake_user_id")
-    end
-
-    it "delegates getting a room" do
-      resp = client.get("/_matrix/app/v1/rooms/fake_room?access_token=#{TEST_TOKEN}")
-      resp.body.should eq("room alias: fake_room")
-    end
-
-    it "handles transactions idempotently" do
+    it "handles transactions idempotently (base behavior covers this, but test implementation allows introspecting here)" do
       resp = client.put("/_matrix/app/v1/transactions/first_txn?access_token=#{TEST_TOKEN}")
       test_impl_server.events_handled.should eq(0)
       resp = client.put("/_matrix/app/v1/transactions/second_txn?access_token=#{TEST_TOKEN}", body: "[{}, {}]")
@@ -107,6 +93,16 @@ describe MatrixOrg::AppService::Server do
       test_impl_server.events_handled.should eq(3)
       resp = client.put("/_matrix/app/v1/transactions/second_txn?access_token=#{TEST_TOKEN}", body: "[{}]")
       test_impl_server.events_handled.should eq(3)
+    end
+
+    it "delegates getting a user" do
+      resp = client.get("/_matrix/app/v1/users/fake_user_id?access_token=#{TEST_TOKEN}")
+      resp.status.should eq(HTTP::Status::OK)
+    end
+
+    it "delegates getting a room" do
+      resp = client.get("/_matrix/app/v1/rooms/fake_room?access_token=#{TEST_TOKEN}")
+      resp.status.should eq(HTTP::Status::OK)
     end
   end
 end

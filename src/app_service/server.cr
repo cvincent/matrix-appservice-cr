@@ -40,13 +40,17 @@ class MatrixOrg::AppService::Server
 
     get "/_matrix/app/v1/users/:user_id" do |context, params|
       handle_request(context, params) do
-        handle_get_user(context, params["user_id"])
+        if !handle_get_user(params["user_id"])
+          context.response.status = HTTP::Status::NOT_FOUND
+        end
       end
     end
 
     get "/_matrix/app/v1/rooms/:alias" do |context, params|
       handle_request(context, params) do
-        handle_get_room(context, params["alias"])
+        if !handle_get_room(params["alias"])
+          context.response.status = HTTP::Status::NOT_FOUND
+        end
       end
     end
   end
@@ -61,11 +65,11 @@ class MatrixOrg::AppService::Server
       yield
     rescue MissingAccessToken
       context.response.status = HTTP::Status::UNAUTHORIZED
-      context
     rescue InvalidAccessToken
       context.response.status = HTTP::Status::FORBIDDEN
-      context
     end
+
+    context
   end
 
   private def log_request(context, params)
@@ -88,7 +92,7 @@ class MatrixOrg::AppService::Server
 
     if !@txn_ids.includes?(txn_id)
       JSON.parse(body).as_a.each do |event|
-        handle_put_event(context, event)
+        handle_put_event(event)
       end
 
       @txn_ids.unshift(txn_id)
@@ -99,18 +103,15 @@ class MatrixOrg::AppService::Server
     context
   end
 
-  private def handle_put_event(context, event)
-    context
+  private def handle_put_event(event)
   end
 
-  private def handle_get_user(context, user_id)
-    context.response.status = HTTP::Status::NOT_FOUND
-    context
+  private def handle_get_user(user_id)
+    false
   end
 
-  private def handle_get_room(context, room_alias)
-    context.response.status = HTTP::Status::NOT_FOUND
-    context
+  private def handle_get_room(room_alias)
+    false
   end
 
   private def extract_body(body : Nil)
