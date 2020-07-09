@@ -6,6 +6,9 @@ class MatrixOrg::AppService::Server
 
   @txn_ids = [] of String
 
+  private class MissingAccessToken < Exception
+  end
+
   private class InvalidAccessToken < Exception
   end
 
@@ -18,6 +21,10 @@ class MatrixOrg::AppService::Server
     @server.bind_tcp(@host, @port)
     @logger.puts("Listening on #{@host}:#{@port}...")
     @server.listen
+  end
+
+  def listening?
+    @server.listening?
   end
 
   def stop!
@@ -52,12 +59,11 @@ class MatrixOrg::AppService::Server
       log_request(context, params)
       validate_request!(context, params)
       yield
+    rescue MissingAccessToken
+      context.response.status = HTTP::Status::UNAUTHORIZED
+      context
     rescue InvalidAccessToken
       context.response.status = HTTP::Status::FORBIDDEN
-      context.response.print({
-          "errcode" => "M_FORBIDDEN",
-          "error" => "Bad token supplied",
-        }.to_json)
       context
     end
   end
@@ -69,7 +75,9 @@ class MatrixOrg::AppService::Server
   end
 
   private def validate_request!(context, params)
-    if !params.has_key?("access_token") || params["access_token"] != @hs_token
+    if !params.has_key?("access_token")
+      raise MissingAccessToken.new
+    elsif params["access_token"] != @hs_token
       raise InvalidAccessToken.new
     end
   end
@@ -87,6 +95,7 @@ class MatrixOrg::AppService::Server
       @txn_ids = @txn_ids[0, @txn_buffer_size - 1]
     end
 
+    context.response.print("{}")
     context
   end
 
@@ -95,10 +104,12 @@ class MatrixOrg::AppService::Server
   end
 
   private def handle_get_user(context, user_id)
+    context.response.status = HTTP::Status::NOT_FOUND
     context
   end
 
   private def handle_get_room(context, room_alias)
+    context.response.status = HTTP::Status::NOT_FOUND
     context
   end
 
