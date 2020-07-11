@@ -32,25 +32,49 @@ class MatrixOrg::AppService::Server
   end
 
   private def draw_routes!
+    put "/transactions/:txn_id" do |context, params|
+      put_transaction_route(context, params)
+    end
+
     put "/_matrix/app/v1/transactions/:txn_id" do |context, params|
-      handle_request(context, params) do
-        put_transaction(context, params["txn_id"])
-      end
+      put_transaction_route(context, params)
+    end
+
+    get "/users/:user_id" do |context, params|
+      get_user_route(context, params)
     end
 
     get "/_matrix/app/v1/users/:user_id" do |context, params|
-      handle_request(context, params) do
-        if !handle_get_user(params["user_id"])
-          context.response.status = HTTP::Status::NOT_FOUND
-        end
-      end
+      get_user_route(context, params)
+    end
+
+    get "/rooms/:alias" do |context, params|
+      get_room_route(context, params)
     end
 
     get "/_matrix/app/v1/rooms/:alias" do |context, params|
-      handle_request(context, params) do
-        if !handle_get_room(params["alias"])
-          context.response.status = HTTP::Status::NOT_FOUND
-        end
+      get_room_route(context, params)
+    end
+  end
+
+  private def put_transaction_route(context, params)
+    handle_request(context, params) do |body|
+      put_transaction(context, params["txn_id"], body)
+    end
+  end
+
+  private def get_user_route(context, params)
+    handle_request(context, params) do
+      if !handle_get_user(params["user_id"])
+        context.response.status = HTTP::Status::NOT_FOUND
+      end
+    end
+  end
+
+  private def get_room_route(context, params)
+    handle_request(context, params) do
+      if !handle_get_room(params["alias"])
+        context.response.status = HTTP::Status::NOT_FOUND
       end
     end
   end
@@ -58,11 +82,12 @@ class MatrixOrg::AppService::Server
   private def handle_request(context, params, &block)
     query_params = (context.request.query || "").split("&").map(&.split("=")).to_h rescue {} of String => String
     params = params.merge(query_params)
+    body = extract_body(context.request.body)
 
     begin
-      log_request(context, params)
+      log_request(context, params, body)
       validate_request!(context, params)
-      yield
+      yield body
     rescue MissingAccessToken
       context.response.status = HTTP::Status::UNAUTHORIZED
     rescue InvalidAccessToken
@@ -72,9 +97,10 @@ class MatrixOrg::AppService::Server
     context
   end
 
-  private def log_request(context, params)
+  private def log_request(context, params, body)
     @logger.puts("#{context.request.method} #{context.request.path}")
     @logger.puts(params.inspect)
+    @logger.puts(body)
     @logger.puts("")
   end
 
@@ -86,9 +112,8 @@ class MatrixOrg::AppService::Server
     end
   end
 
-  private def put_transaction(context, txn_id)
-    body = extract_body(context.request.body)
-    body = "[]" if body.blank?
+  private def put_transaction(context, txn_id, body)
+    body = %|{"events": []}| if body.blank?
 
     if !@txn_ids.includes?(txn_id)
       JSON.parse(body).as_a.each do |event|
