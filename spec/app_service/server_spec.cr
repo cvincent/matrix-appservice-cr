@@ -32,6 +32,18 @@ def client
   HTTP::Client.new(TEST_HOST, TEST_PORT)
 end
 
+message_event = {
+  type: "m.room.message",
+  event_id: "asdf",
+  room_id: "asdf",
+  sender: "asdf",
+  origin_server_ts: 1234,
+  content: {
+    msgtype: "m.message",
+    body: "body text",
+  },
+}.to_json
+
 def test_authorization_errors
   describe "authorization errors" do
     it "returns unauthorized status when an access_token isn't supplied" do
@@ -57,7 +69,7 @@ describe MatrixOrg::AppService::Server do
     test_authorization_errors
 
     it "always responds to PUT transactions with 200 and an empty object" do
-      resp = client.put("/_matrix/app/v1/transactions/some_txn?access_token=#{TEST_TOKEN}", body: "[{}, {}]")
+      resp = client.put("/_matrix/app/v1/transactions/some_txn?access_token=#{TEST_TOKEN}", body: %|{"events": [#{message_event}, #{message_event}]}|)
       resp.status.should eq(HTTP::Status::OK)
       resp.body.should eq("{}")
     end
@@ -87,11 +99,11 @@ describe MatrixOrg::AppService::Server do
     it "handles transactions idempotently (base behavior covers this, but test implementation allows introspecting here)" do
       resp = client.put("/_matrix/app/v1/transactions/first_txn?access_token=#{TEST_TOKEN}")
       test_impl_server.events_handled.should eq(0)
-      resp = client.put("/_matrix/app/v1/transactions/second_txn?access_token=#{TEST_TOKEN}", body: "[{}, {}]")
+      resp = client.put("/_matrix/app/v1/transactions/second_txn?access_token=#{TEST_TOKEN}", body: %|{"events": [#{message_event}, #{message_event}]}|)
       test_impl_server.events_handled.should eq(2)
-      resp = client.put("/_matrix/app/v1/transactions/third_txn?access_token=#{TEST_TOKEN}", body: "[{}]")
+      resp = client.put("/_matrix/app/v1/transactions/third_txn?access_token=#{TEST_TOKEN}", body: %|{"events": [#{message_event}]}|)
       test_impl_server.events_handled.should eq(3)
-      resp = client.put("/_matrix/app/v1/transactions/second_txn?access_token=#{TEST_TOKEN}", body: "[{}]")
+      resp = client.put("/_matrix/app/v1/transactions/second_txn?access_token=#{TEST_TOKEN}", body: %|{"events": [#{message_event}]}|)
       test_impl_server.events_handled.should eq(3)
     end
 

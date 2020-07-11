@@ -1,5 +1,6 @@
 require "router"
 require "json"
+require "./event"
 
 class MatrixOrg::AppService::Server
   include Router
@@ -10,6 +11,13 @@ class MatrixOrg::AppService::Server
   end
 
   private class InvalidAccessToken < Exception
+  end
+
+  struct Transaction
+    include JSON::Serializable
+
+    @[JSON::Field(key: "events")]
+    property events : Array(Event)
   end
 
   def initialize(@host : String, @port : Int32, @hs_token : String, @logger : IO = STDOUT, @txn_buffer_size : Int32 = 128)
@@ -116,8 +124,12 @@ class MatrixOrg::AppService::Server
     body = %|{"events": []}| if body.blank?
 
     if !@txn_ids.includes?(txn_id)
-      JSON.parse(body).as_a.each do |event|
-        handle_put_event(event)
+      begin
+        Transaction.from_json(body).events.each do |event|
+          handle_put_event(event)
+        end
+      rescue e
+        puts e
       end
 
       @txn_ids.unshift(txn_id)
