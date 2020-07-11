@@ -4,7 +4,10 @@ describe MatrixOrg::AppService::Registration do
   it "works" do
     reg = MatrixOrg::AppService::Registration.new(
       "1", "2", "3", "4", "5",
-      [MatrixOrg::AppService::Registration::Namespace.new(true, "asdf")],
+      {
+        "rooms" => [MatrixOrg::AppService::Registration::Namespace.new(true, "asdf")],
+        "users" => [MatrixOrg::AppService::Registration::Namespace.new(true, "asdf")],
+      },
       false,
       ["protocol"],
     )
@@ -15,7 +18,10 @@ describe MatrixOrg::AppService::Registration do
   it "can generate tokens for us" do
     reg = MatrixOrg::AppService::Registration.generate(
       "1", "2", "3",
-      [MatrixOrg::AppService::Registration::Namespace.new(true, "asdf")],
+      {
+        "rooms" => [MatrixOrg::AppService::Registration::Namespace.new(true, "asdf")],
+        "users" => [MatrixOrg::AppService::Registration::Namespace.new(true, "asdf")],
+      },
       false,
       ["protocol"],
     )

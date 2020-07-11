@@ -14,7 +14,7 @@ class MatrixOrg::AppService::Registration
     @id : String,
     @url : String,
     @sender_localpart : String,
-    @namespaces : Array(Namespace),
+    @namespaces : Hash(String, Array(Namespace)),
     @rate_limited : Bool | Nil = nil,
     @protocols : Array(String) | Nil = nil,
   )
@@ -24,7 +24,7 @@ class MatrixOrg::AppService::Registration
     id : String,
     url : String,
     sender_localpart : String,
-    namespaces : Array(Namespace),
+    namespaces : Hash(String, Array(Namespace)),
     rate_limited : Bool | Nil = nil,
     protocols : Array(String) | Nil = nil,
   )
@@ -41,9 +41,14 @@ class MatrixOrg::AppService::Registration
     }
 
     if @namespaces.any?
-      yaml = yaml.merge(namespaces: @namespaces.map do |ns|
-        { exclusive: ns.exclusive, regex: ns.regex }
-      end)
+      yaml = yaml.merge(namespaces: @namespaces.map do |name, nss|
+        {
+          name,
+          nss.map do |ns|
+            { exclusive: ns.exclusive, regex: ns.regex }
+          end
+        }
+      end.to_h)
     end
 
     unless @rate_limited.nil?
